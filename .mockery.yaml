@@ -1,0 +1,4 @@
+with-expecter: True
+case: underscore
+exported: True
+disable-version-string: True

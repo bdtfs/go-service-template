@@ -1,0 +1,176 @@
+# More info on config here: https://golangci-lint.run/usage/configuration/#config-file
+run:
+  concurrency: 8
+  timeout: 5m
+  # Fail if the error was met.
+  issues-exit-code: 1
+  tests: true
+  build-tags:
+    - integration
+  # With the read-only mode linter will fail if the go.mod file is outdated.
+  modules-download-mode: readonly
+  allow-parallel-runners: false
+  # Keep this empty to use the Go version from the go.mod file.
+  go: "1.23"
+
+output:
+  print-issued-lines: false
+  print-linter-name: true
+  uniq-by-line: false
+  path-prefix: ""
+  sort-results: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+  fix: false
+  exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - bodyclose
+        - gosec
+        - errcheck
+        - unparam
+
+linters:
+  disable-all: true
+  # Set to true runs only fast linters.
+  fast: false
+  enable:
+    # Check for pass []any as any in variadic func(...any).
+    - asasalint
+    # Checks for dangerous unicode character sequences.
+    - bidichk
+    # Checks whether HTTP response body is closed successfully.
+    - bodyclose
+    # Check whether the function uses a non-inherited context.
+    - contextcheck
+    # Check for two durations multiplied together.
+    - durationcheck
+    # Forces to not skip error check.
+    - errcheck
+    # Suggests to use `%w` for error-wrapping.
+    - errorlint
+    # Checks for pointers to enclosing loop variables.
+    - copyloopvar
+    - gocritic
+    # Standard Go formatting
+    - gofmt
+    # Extra rules of Go formatting
+    - gofumpt
+    # Checks imports
+    - goimports
+    # Allow or ban replace directives in go.mod
+    # or force explanation for retract directives.
+    - gomoddirectives
+    # Requires some time to configure it properly, see https://github.com/securego/gosec#available-rules
+    - gosec
+    # Linter that specializes in simplifying code.
+    - gosimple
+    # Official Go tool. Must have.
+    - govet
+    # Detects when assignments to existing variables are not used
+    - ineffassign
+    # Fix all the misspells, amazing thing.
+    - misspell
+    # Finds naked/bare returns and requires change them.
+    - nakedret
+    # Both require a bit more explicit returns.
+    - nilerr
+    - nilnil
+    # Finds sending HTTP request without context.Context.
+    - noctx
+    # Forces comment why another check is disabled.
+    - nolintlint
+    # Finds slices that could potentially be pre-allocated.
+    - prealloc
+    # Finds shadowing of Go's predeclared identifiers.
+    - predeclared
+    # Checks that package variables are not reassigned.
+    - reassign
+    # Drop-in replacement of `golint`.
+    - revive
+    - staticcheck
+    # Is a replacement for `golint`, similar to `revive`.
+    - stylecheck
+    # Test-related checks.
+    - tenv
+    - testableexamples
+    # Remove unnecessary type conversions, make code cleaner
+    - unconvert
+    # Finds unused function or method parameters
+    - unparam
+    # Finds unused declarations.
+    - unused
+    # Detect the possibility to use variables/constants from stdlib.
+    - usestdlibvars
+    # Finds wasted assignment statements.
+    - wastedassign
+    # Like the front-end of a Go compiler, parses and type-checks Go code
+    - typecheck
+    # Finds repeated strings that could be replaced by a constant
+    - goconst
+    # Finds slice declarations with non-zero initial length
+    - makezero
+    # Detects Go test helpers without t.Helper() call and checks the consistency of test helpers
+    - thelper
+    # Checks that tests are in a separate _test package
+    - testpackage
+    # Checks interfaces with unnamed method parameters
+    - inamedparam
+    # Checks for testify package usage best practices
+    - testifylint
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      # These 3 will detect many cases, but they do sense
+      # if it's performance oriented code
+      - hugeParam
+      - rangeExprCopy
+      - rangeValCopy
+  gofumpt:
+    # Module path which contains the source code being formatted.
+    module-path: github.com/bdtfs/go-service-template
+    # Choose whether to use the extra rules.
+    extra-rules: true
+  goimports:
+    # A comma-separated list of prefixes, which, if set, checks import paths
+    # with the given prefixes are grouped after 3rd-party packages.
+    local-prefixes:  github.com/bdtfs/go-service-template
+  gosec:
+    excludes:
+      - G307
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # I'm ok to waste some bytes
+  errcheck:
+    # Report `a := b.(MyStruct)` when `a, ok := ...` should be.
+    check-type-assertions: true
+    # Report skipped checks:`num, _ := strconv.Atoi(numStr)`.
+    check-blank: true
+    # Function to skip.
+    exclude-functions:
+      - io/ioutil.ReadFile
+      - io.Copy(*bytes.Buffer)
+      - io.Copy(os.Stdout)
+      - (io.Closer).Close
+  nakedret:
+    # No naked returns, ever.
+    max-func-lines: 1
+  revive:
+    severity: warning
+    confidence: 0.8
+  stylecheck:
+    checks: [ "all", "-ST1000", "-ST1003" ]
+  testifylint:
+    enable-all: true

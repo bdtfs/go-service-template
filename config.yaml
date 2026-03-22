@@ -1,0 +1,28 @@
+service:
+  name: my-service
+  type: api # api | consumer | worker
+
+server:
+  port: ":8080"
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 120s
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json # json | text
+  dest: stdout # stdout | stderr
+  add_source: false
+
+metrics:
+  enabled: true
+  address: ":8081"
+  namespace: ${METRICS_NAMESPACE:my-service}
+  subsystem: ${METRICS_SUBSYSTEM:app}
+
+components:
+  postgres:
+    enabled: ${POSTGRES_ENABLED:false}
+    dsn: ${PG_DSN:postgresql://postgres:password@localhost:5432/mydb?sslmode=disable}
+    max_conns: 25
+    min_conns: 5
