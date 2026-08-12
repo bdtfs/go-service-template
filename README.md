@@ -1,18 +1,23 @@
 # Go Service Template
 
-A production-ready Go microservice template with hexagonal architecture, composable infrastructure modules, and built-in observability.
+A production-ready Go microservice template using a layered service architecture
+(the Avito Wallet service conventions): a `deps` seam decoupling domain code from
+infrastructure, per-aggregate use cases, a squirrel/scany postgres adapter,
+per-endpoint handler packages, and a lazy DI container.
 
 ## Features
 
-- **Hexagonal architecture** — clean separation of domain, ports, and adapters
-- **Composable modules** — enable/disable infrastructure via `config.yaml`
+- **Layered architecture** — `deps` → `model` → `storage`/`clients` → `usecase` → `handler`, wired by a `di` container
+- **Point-of-use interfaces** — each consumer declares the narrow interface it needs; mocks via mockery
+- **Series metrics** — every layer instruments itself through a `pkg/metrics.Series`
+- **Composable infra modules** — enable/disable components via `config.yaml`
 - **Service types** — API (HTTP server), Consumer, Worker
 - **Built-in observability** — structured logging, Prometheus metrics, health checks
 - **HTTP middleware stack** — recovery, request-id, logging, metrics
-- **YAML config** — with `${ENV_VAR:default}` interpolation
+- **YAML config** — infra sections plus an `app:` section for domain tunables
 - **Graceful shutdown** — ordered component teardown on SIGINT/SIGTERM
 - **Kubernetes ready** — `/healthz` and `/readyz` endpoints
-- **Minimal dependencies** — stdlib where possible, no unnecessary frameworks
+- **Worked reference domain** — an `operations` aggregate demonstrating every layer end-to-end
 
 ## Quick Start
 
@@ -35,47 +40,57 @@ make run
 ## Architecture
 
 ```
-cmd/service/main.go              Entry point — composes service
+cmd/service/main.go              Entry point — signal context and di.Run only
 internal/
-  config/                         YAML config loader
-  domain/                         Business logic
-  ports/
-    inbound/                      Driving ports (handler interfaces)
-    outbound/                     Driven ports (repository interfaces)
-  adapters/
-    inbound/                      HTTP handlers, consumers
-    outbound/                     Database repos, API clients
-pkg/
+  config/                         YAML config (infra) + app: domain tunables
+  deps/                           Log / Metrics / Transaction interfaces + stubs
+  model/                          Domain types, statuses, db tags, behavior
+  di/                             Lazy composition root (get[T] accessors)
+  pkg/
+    clients/                      Outbound adapters (error.go + <svc>/{client,dto,errors})
+    storage/                      errors.go, filter.go, transaction.go
+    storage/postgres/             SQL adapter (squirrel + scany over pgx)
+    usecase/<aggregate>/          usecase.go + one file per operation + errors.go
+  handler/
+    validator/                    Composable request-validation rules
+    <endpoint>/                   handler.go (+ handler_test.go)
+db/migrations/                   SQL migrations
+pkg/                             Reusable infra libs (importable by any service):
   service/                        Service builder + Component interface
   clog/                           Structured JSON logging
-  metrics/                        Prometheus metrics + health checks
+  metrics/                        Prometheus registry + Series metric naming
   middleware/                     HTTP middleware
   postgres/                       PostgreSQL component
   transactions/                   Transaction manager
 ```
 
+The `deps` package is the only seam between `internal/` and the concrete libs:
+its interfaces are satisfied structurally by `clog.CLog`, `metrics.Registry`, and
+`pkg/transactions`, so domain code never imports them directly.
+
 ### Service Composition
 
-The service builder handles lifecycle, middleware, and graceful shutdown:
+The service builder handles lifecycle, middleware, and graceful shutdown. DI owns
+configuration, concrete dependencies, and route registration; the entrypoint only owns
+the process signal context:
 
 ```go
 func main() {
-    cfg := config.Must(config.Load("config.yaml"))
-
-    var opts []service.Option
-    if cfg.Components.Postgres.Enabled {
-        opts = append(opts, service.WithComponent(
-            postgres.NewComponent(cfg.Components.Postgres.DSN),
-        ))
-    }
-
-    svc := service.Must(service.New(cfg, opts...))
-
-    svc.HandleFunc("GET /api/v1/items", itemHandler)
-
-    svc.Run(context.Background())
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := di.Run(ctx, "config.yaml"); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
 }
 ```
+
+### Adding an aggregate
+
+Follow the `operations` reference domain: add `model` types → a `storage/postgres`
+adapter → a `usecase/<aggregate>` package (declaring its `storage`/client
+interfaces at the point of use) → a `handler/<endpoint>` package, then add the
+accessors and route in `di`.
 
 ### Service Types
 
@@ -142,12 +157,23 @@ This creates `pkg/redis/redis.go` with the Component interface skeleton and upda
 
 ## Endpoints
 
-| Endpoint    | Port | Description              |
-|-------------|------|--------------------------|
-| `/healthz`  | 8081 | Kubernetes liveness      |
-| `/readyz`   | 8081 | Kubernetes readiness     |
-| `/metrics`  | 8081 | Prometheus metrics       |
-| User routes | 8080 | Application HTTP server  |
+| Endpoint                              | Port | Description                     |
+|---------------------------------------|------|---------------------------------|
+| `POST /api/v1/operations`             | 8080 | Create an operation (reference) |
+| `GET /api/v1/operations/{external_id}`| 8080 | Fetch an operation (reference)  |
+| `/healthz`                            | 8081 | Kubernetes liveness             |
+| `/readyz`                             | 8081 | Kubernetes readiness            |
+| `/metrics`                            | 8081 | Prometheus metrics              |
+
+The `operations` routes are the worked reference domain — replace them with your
+own aggregates.
+
+```bash
+# with postgres up (make dc-reup) and the service running (make run):
+curl -s -XPOST localhost:8080/api/v1/operations \
+  -d '{"type":"payment","user_id":1,"amount":1000}'
+# → {"external_id":"...","status":"in_progress"}
+```
 
 ## Development
 

@@ -22,7 +22,15 @@ metrics:
 
 components:
   postgres:
-    enabled: ${POSTGRES_ENABLED:false}
+    # The reference "operations" domain needs postgres. `make dc-reup` starts it.
+    enabled: ${POSTGRES_ENABLED:true}
     dsn: ${PG_DSN:postgresql://postgres:password@localhost:5432/mydb?sslmode=disable}
     max_conns: 25
     min_conns: 5
+
+app:
+  notifier:
+    base_url: ${NOTIFIER_BASE_URL:http://localhost:9000}
+    timeout: 5s
+  create_operation:
+    max_reattempt: ${CREATE_OPERATION_MAX_REATTEMPT:5}

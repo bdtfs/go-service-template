@@ -1,108 +1,104 @@
 package di
 
 import (
-	"github.com/bdtfs/go-service-template/pkg/clog"
-	"github.com/bdtfs/go-service-template/pkg/metrics"
-	"github.com/bdtfs/go-service-template/pkg/postgres"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
+
+	"github.com/bdtfs/go-service-template/internal/deps"
+	"github.com/bdtfs/go-service-template/internal/handler/create_operation"
+	"github.com/bdtfs/go-service-template/internal/handler/get_operation"
+	"github.com/bdtfs/go-service-template/internal/pkg/clients/notifier"
+	"github.com/bdtfs/go-service-template/internal/pkg/storage"
+	"github.com/bdtfs/go-service-template/internal/pkg/storage/postgres"
+	"github.com/bdtfs/go-service-template/internal/pkg/usecase/operation"
+	pgcomp "github.com/bdtfs/go-service-template/pkg/postgres"
 	"github.com/bdtfs/go-service-template/pkg/service"
-	"github.com/bdtfs/go-service-template/pkg/transactions"
 )
 
-// Container provides lazy-initialized, application-layer dependency wiring.
-// Infrastructure components (postgres, redis, etc.) live in the Service;
-// the Container wires them into your domain's ports and use cases.
-//
-// Usage in main.go:
-//
-//	svc := service.Must(service.New(cfg, ...))
-//	c := di.New(svc)
-//	svc.HandleFunc("GET /api/v1/items", c.ItemHandler().List)
+// Container lazily constructs the private application graph.
 type Container struct {
 	svc *service.Service
 
-	// Add your application-layer singletons here, e.g.:
-	// itemRepo    ports.ItemRepository
-	// itemUseCase *usecase.ItemUseCase
-	// itemHandler *handler.ItemHandler
+	trf         deps.TransactionFactory
+	trm         deps.TransactionManager
+	storage     *postgres.Storage
+	notifier    *notifier.Client
+	operationUC *operation.UseCase
 
-	txFactory *transactions.PgTransactionFactory
-	txManager transactions.TransactionManager
+	createOperationHandler *create_operation.Handler
+	getOperationHandler    *get_operation.Handler
 }
 
-// New creates a Container backed by the given Service.
-func New(svc *service.Service) *Container {
-	return &Container{svc: svc}
-}
+func New(svc *service.Service) *Container { return &Container{svc: svc} }
 
-// --- Core accessors (always available) ---
+func (c *Container) logger() deps.Log { return c.svc.Logger() }
 
-// Logger returns the service logger.
-func (c *Container) Logger() clog.CLog {
-	return c.svc.Logger()
-}
+func (c *Container) metrics() deps.Metrics { return c.svc.Metrics() }
 
-// Metrics returns the metrics registry.
-func (c *Container) Metrics() metrics.Registry {
-	return c.svc.Metrics()
-}
-
-// --- Postgres helpers (available when postgres component is enabled) ---
-
-// Postgres returns the postgres component, or nil if not registered.
-func (c *Container) Postgres() *postgres.Component {
-	comp, ok := c.svc.Component(postgres.ComponentName)
+func (c *Container) pool() *pgxpool.Pool {
+	comp, ok := c.svc.Component(pgcomp.ComponentName)
 	if !ok {
 		return nil
 	}
-	pg, _ := comp.(*postgres.Component)
-	return pg
+	pg, _ := comp.(*pgcomp.Component)
+	if pg == nil {
+		return nil
+	}
+	return pg.Pool()
 }
 
-// TxFactory returns a lazy-initialized transaction factory.
-func (c *Container) TxFactory() *transactions.PgTransactionFactory {
-	return get(&c.txFactory, func() *transactions.PgTransactionFactory {
-		pg := c.Postgres()
-		if pg == nil || pg.Pool() == nil {
-			return nil
-		}
-		f, _ := transactions.NewPgTransactionFactory(pg.Pool()).(*transactions.PgTransactionFactory)
-		return f
+func (c *Container) TxFactory() deps.TransactionFactory {
+	return get(&c.trf, func() deps.TransactionFactory {
+		return storage.NewTransactionFactory(c.pool())
 	})
 }
 
-// TxManager returns a lazy-initialized transaction manager.
-func (c *Container) TxManager() transactions.TransactionManager {
-	return get(&c.txManager, func() transactions.TransactionManager {
-		f := c.TxFactory()
-		if f == nil {
-			return nil
-		}
-		return transactions.NewPgTransactionManager(f)
+func (c *Container) TxManager() deps.TransactionManager {
+	return get(&c.trm, func() deps.TransactionManager {
+		return storage.NewTransactionManager(c.pool())
 	})
 }
 
-// --- Template: uncomment and adapt for your domain ---
-//
-// func (c *Container) ItemRepo() ports.ItemRepository {
-// 	return get(&c.itemRepo, func() ports.ItemRepository {
-// 		return adapters.NewItemPostgresRepo(c.Postgres().Pool(), c.TxFactory())
-// 	})
-// }
-//
-// func (c *Container) ItemUseCase() *usecase.ItemUseCase {
-// 	return get(&c.itemUseCase, func() *usecase.ItemUseCase {
-// 		return usecase.NewItemUseCase(c.ItemRepo(), c.TxManager(), c.Logger())
-// 	})
-// }
-//
-// func (c *Container) ItemHandler() *handler.ItemHandler {
-// 	return get(&c.itemHandler, func() *handler.ItemHandler {
-// 		return handler.NewItemHandler(c.ItemUseCase(), c.Logger(), c.Metrics())
-// 	})
-// }
+func (c *Container) Storage() *postgres.Storage {
+	return get(&c.storage, func() *postgres.Storage {
+		return postgres.NewStorage(c.TxFactory())
+	})
+}
 
-// get is a generic lazy-initialization helper.
-// On first call it runs builder and caches the result; subsequent calls return the cached value.
+func (c *Container) notifierClient() *notifier.Client {
+	return get(&c.notifier, func() *notifier.Client {
+		cfg := c.svc.Config().App.Notifier
+		return notifier.New(c.metrics(), &http.Client{Timeout: cfg.Timeout.Std()}, cfg.BaseURL)
+	})
+}
+
+func (c *Container) operationUseCase() *operation.UseCase {
+	return get(&c.operationUC, func() *operation.UseCase {
+		return operation.New(
+			c.TxManager(),
+			c.logger(),
+			c.metrics(),
+			c.Storage(),
+			c.notifierClient(),
+			uuid.New,
+		)
+	})
+}
+
+func (c *Container) CreateOperationHandler() *create_operation.Handler {
+	return get(&c.createOperationHandler, func() *create_operation.Handler {
+		return create_operation.New(c.logger(), c.metrics(), c.operationUseCase())
+	})
+}
+
+func (c *Container) GetOperationHandler() *get_operation.Handler {
+	return get(&c.getOperationHandler, func() *get_operation.Handler {
+		return get_operation.New(c.logger(), c.metrics(), c.operationUseCase())
+	})
+}
+
 func get[T comparable](obj *T, builder func() T) T {
 	if *obj != *new(T) {
 		return *obj

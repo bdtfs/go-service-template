@@ -4,11 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/bdtfs/go-service-template/internal/config"
@@ -89,15 +85,6 @@ func New(cfg *config.Config, opts ...Option) (*Service, error) {
 	return svc, nil
 }
 
-// Must is like New but exits on error.
-func Must(svc *Service, err error) *Service {
-	if err != nil {
-		slog.Error("failed to create service", "error", err)
-		os.Exit(1)
-	}
-	return svc
-}
-
 // Logger returns the service logger.
 func (s *Service) Logger() clog.CLog { return s.logger }
 
@@ -129,12 +116,8 @@ func (s *Service) HandleFunc(pattern string, handler http.HandlerFunc) {
 	s.router.HandleFunc(pattern, handler)
 }
 
-// Run starts the service and blocks until a shutdown signal (SIGINT/SIGTERM) is received.
-// It initializes all components, starts servers, and handles graceful shutdown.
+// Run owns initialized resources until ctx is cancelled.
 func (s *Service) Run(ctx context.Context) error {
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
 	defer func() {
 		if r := recover(); r != nil {
 			s.logger.ErrorCtx(ctx, fmt.Errorf("panic: %v", r), "recovered from panic")
