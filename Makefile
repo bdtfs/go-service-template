@@ -20,7 +20,8 @@ test:
 	go clean --testcache && go test -count 1 -race ./...
 
 int-test:
-	go clean --testcache && go test --tags=integration -count 1 -race ./...
+	TEST_DATABASE_URL="$${TEST_DATABASE_URL:-postgresql://postgres:password@localhost:5432/mydb?sslmode=disable}" \
+		go test --tags=integration -count 1 -race ./...
 
 build: deps
 	go build -v -o $(BIN) -ldflags "$(LDFLAGS)" ./cmd/service

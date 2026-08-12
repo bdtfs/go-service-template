@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine3.21 AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /build
 
@@ -21,5 +21,8 @@ COPY --from=builder /build/bin/service /app/service
 COPY --from=builder /build/config.yaml /app/config.yaml
 
 WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 ENTRYPOINT ["/app/service"]
