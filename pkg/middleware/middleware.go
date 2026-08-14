@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -19,7 +18,10 @@ type requestIDKey struct{}
 
 // RequestIDFromContext extracts the request ID from the context.
 func RequestIDFromContext(ctx context.Context) string {
-	id, _ := ctx.Value(requestIDKey{}).(string)
+	id, ok := ctx.Value(requestIDKey{}).(string)
+	if !ok {
+		return ""
+	}
 	return id
 }
 
@@ -27,7 +29,7 @@ func RequestIDFromContext(ctx context.Context) string {
 func Recovery(logger clog.CLog) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
+			defer func() { //nolint:contextcheck // Panic logging uses the request context below.
 				if rec := recover(); rec != nil {
 					logger.ErrorCtx(r.Context(), fmt.Errorf("panic: %v", rec), "recovered from panic in HTTP handler")
 					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -123,7 +125,5 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 func generateID() string {
-	b := make([]byte, 8)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	return rand.Text()
 }

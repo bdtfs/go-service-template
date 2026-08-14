@@ -3,33 +3,24 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/bdtfs/go-service-template/internal/config"
 	"github.com/bdtfs/go-service-template/internal/di"
-	"github.com/bdtfs/go-service-template/pkg/postgres"
-	"github.com/bdtfs/go-service-template/pkg/service"
 )
 
 func main() {
-	cfg := config.Must(config.Load("config.yaml"))
+	os.Exit(run())
+}
 
-	var opts []service.Option
+func run() int {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	// Compose infrastructure components based on config
-	if cfg.Components.Postgres.Enabled {
-		opts = append(opts, service.WithComponent(
-			postgres.NewComponent(cfg.Components.Postgres.DSN),
-		))
+	if err := di.Run(ctx, "config.yaml"); err != nil {
+		log.Print(err)
+		return 1
 	}
-
-	svc := service.Must(service.New(cfg, opts...))
-
-	// Wire application-layer dependencies
-	c := di.New(svc)
-	_ = c // use c to register handlers, e.g.:
-	// svc.HandleFunc("GET /api/v1/items", c.ItemHandler().List)
-
-	if err := svc.Run(context.Background()); err != nil {
-		log.Fatal(err)
-	}
+	return 0
 }

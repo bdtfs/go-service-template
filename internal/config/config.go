@@ -18,6 +18,24 @@ type Config struct {
 	Log        LogConfig        `yaml:"log"`
 	Metrics    MetricsConfig    `yaml:"metrics"`
 	Components ComponentsConfig `yaml:"components"`
+	App        AppConfig        `yaml:"app"`
+}
+
+// AppConfig holds application-domain tunables (downstream endpoints, per-use-case
+// limits). Infrastructure lives in the sections above; put business knobs here so
+// the di.Container can read them when building use cases.
+type AppConfig struct {
+	Notifier        NotifierConfig        `yaml:"notifier"`
+	CreateOperation CreateOperationConfig `yaml:"create_operation"`
+}
+
+type NotifierConfig struct {
+	BaseURL string   `yaml:"base_url"`
+	Timeout Duration `yaml:"timeout"`
+}
+
+type CreateOperationConfig struct {
+	MaxReattempt int64 `yaml:"max_reattempt"`
 }
 
 type ServiceConfig struct {
@@ -116,6 +134,7 @@ func (l *LogLevel) UnmarshalYAML(value *yaml.Node) error {
 // Load reads a YAML config file and interpolates environment variables.
 // Supports ${VAR} and ${VAR:default} syntax.
 func Load(path string) (*Config, error) {
+	//nolint:gosec // The configuration path is an explicit process argument.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
@@ -130,14 +149,6 @@ func Load(path string) (*Config, error) {
 
 	cfg.applyDefaults()
 	return &cfg, nil
-}
-
-// Must panics if Load returns an error.
-func Must(cfg *Config, err error) *Config {
-	if err != nil {
-		panic(fmt.Sprintf("config: %v", err))
-	}
-	return cfg
 }
 
 func (c *Config) applyDefaults() {
@@ -173,6 +184,15 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Log.Format == "" {
 		c.Log.Format = "json"
+	}
+	if c.App.Notifier.BaseURL == "" {
+		c.App.Notifier.BaseURL = "http://localhost:9000"
+	}
+	if c.App.Notifier.Timeout == 0 {
+		c.App.Notifier.Timeout = Duration(5 * time.Second)
+	}
+	if c.App.CreateOperation.MaxReattempt == 0 {
+		c.App.CreateOperation.MaxReattempt = 5
 	}
 }
 

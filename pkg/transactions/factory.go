@@ -11,7 +11,7 @@ type PgTransactionFactory struct {
 	pool *pgxpool.Pool
 }
 
-func NewPgTransactionFactory(pool *pgxpool.Pool) TransactionFactory {
+func NewPgTransactionFactory(pool *pgxpool.Pool) *PgTransactionFactory {
 	return &PgTransactionFactory{pool: pool}
 }
 

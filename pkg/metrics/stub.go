@@ -30,7 +30,7 @@ func NewServerStub() Server {
 	return &serverStub{}
 }
 
-func (s *serverStub) Start(_ context.Context)          {}
-func (s *serverStub) Stop(_ context.Context) error      { return nil }
-func (s *serverStub) SetReady(_ bool)                   {}
-func (s *serverStub) SetAlive(_ bool)                   {}
+func (s *serverStub) Start(_ context.Context)      {}
+func (s *serverStub) Stop(_ context.Context) error { return nil }
+func (s *serverStub) SetReady(_ bool)              {}
+func (s *serverStub) SetAlive(_ bool)              {}
