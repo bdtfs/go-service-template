@@ -7,10 +7,8 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -104,13 +102,13 @@ func TestDependencyDirection(t *testing.T) {
 	})
 }
 
-func TestModelHasNoPersistenceOrTransportTags(t *testing.T) {
+func TestModelHasNoStructTags(t *testing.T) {
 	violations, err := findForbiddenModelTags(filepath.Join(moduleRoot(t), "internal", "model"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, violation := range violations {
-		t.Errorf("%s: internal/model field has forbidden %s tag", violation.Path, violation.Tag)
+		t.Errorf("%s: internal/model field has forbidden struct tag %s", violation.Path, violation.Tag)
 	}
 }
 
@@ -137,16 +135,7 @@ func findForbiddenModelTags(root string) ([]modelTagViolation, error) {
 			if !ok || field.Tag == nil {
 				return true
 			}
-			value, err := strconv.Unquote(field.Tag.Value)
-			if err != nil {
-				return true
-			}
-			tag := reflect.StructTag(value)
-			for _, key := range []string{"json", "yaml", "db", "database"} {
-				if _, exists := tag.Lookup(key); exists {
-					violations = append(violations, modelTagViolation{Path: path, Tag: key})
-				}
-			}
+			violations = append(violations, modelTagViolation{Path: path, Tag: field.Tag.Value})
 			return true
 		})
 		return nil
@@ -163,6 +152,8 @@ func TestModelTagCheckerFixtures(t *testing.T) {
 		{name: "clean model", fixture: "good"},
 		{name: "db tag", fixture: filepath.Join("bad", "db"), wantTag: "db"},
 		{name: "database tag", fixture: filepath.Join("bad", "database"), wantTag: "database"},
+		{name: "bson tag", fixture: filepath.Join("bad", "bson"), wantTag: "bson"},
+		{name: "gorm tag", fixture: filepath.Join("bad", "gorm"), wantTag: "gorm"},
 		{name: "json tag", fixture: filepath.Join("bad", "json"), wantTag: "json"},
 		{name: "yaml tag", fixture: filepath.Join("bad", "yaml"), wantTag: "yaml"},
 	}
@@ -180,7 +171,7 @@ func TestModelTagCheckerFixtures(t *testing.T) {
 				}
 				return
 			}
-			if len(violations) != 1 || violations[0].Tag != tt.wantTag {
+			if len(violations) != 1 || !strings.Contains(violations[0].Tag, tt.wantTag) {
 				t.Fatalf("violations = %v, want one %s tag", violations, tt.wantTag)
 			}
 		})

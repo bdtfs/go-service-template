@@ -45,8 +45,8 @@ pattern for new aggregates: add `model` types, a `storage/postgres` adapter, a
   `metrics.Registry`, and `pkg/transactions` satisfy structurally, plus no-op
   stubs for unit tests. Domain code imports `deps`, never `pkg/clog` etc.
 - **model** — pure domain types, domain events and errors with no I/O or wire
-  encoding. JSON, YAML, database and persistence tags are forbidden. Adapters
-  and use cases share these transport-neutral values.
+  encoding. Every struct tag is forbidden: domain models are completely
+  tag-free. Adapters and use cases share these transport-neutral values.
 - **storage** — `errors.go`/`filter.go` shared types; `postgres/` builds SQL with
   squirrel (`$`-placeholders), scans into operation-specific private row types,
   then maps every field explicitly to domain models. Every query runs against
@@ -123,6 +123,7 @@ prefer the mockery-generated mocks (`make codegen`) referenced by the
 `internal/architecture/structure_test.go` enforces entrypoint size, root hygiene,
 per-operation handler tests, recursive dependency direction, and one exact
 golangci-lint version shared by local and CI gates. It rejects persistence and
-transport tags in `internal/model`; committed good/bad fixtures prove the tag
-checker cannot silently become a no-op. `AGENTS.md` and `CLAUDE.md` must remain
-byte-identical; both the architecture suite and CI enforce parity.
+transport coupling by rejecting every struct tag in `internal/model`; committed
+clean and db/database/json/yaml/gorm/bson fixtures prove the checker cannot
+silently become a no-op. `AGENTS.md` and `CLAUDE.md` must remain byte-identical;
+both the architecture suite and CI enforce parity.

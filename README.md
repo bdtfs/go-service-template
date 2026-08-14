@@ -73,8 +73,9 @@ interfaces accept values from `model`; outbound clients translate those values
 to private transport DTOs, and storage adapters translate infrastructure misses
 to domain errors. PostgreSQL scans into private, operation-specific row structs
 and explicitly maps them into tag-free domain models. The recursive architecture
-test rejects any reversal or persistence/transport tag in `internal/model`;
-committed good/bad fixtures keep the checker from regressing into a no-op.
+test rejects any reversal or any struct tag in `internal/model`; committed clean
+and db/database/json/yaml/gorm/bson fixtures keep the checker from regressing
+into a no-op.
 
 ### Service Composition
 
