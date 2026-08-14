@@ -56,10 +56,10 @@ func RuleNonEmpty(s string, fieldErr error) Rule {
 	}
 }
 
-// RuleMaxLen requires len(s) <= max.
-func RuleMaxLen(s string, max int, fieldErr error) Rule {
+// RuleMaxLen requires len(s) <= limit.
+func RuleMaxLen(s string, limit int, fieldErr error) Rule {
 	return func() error {
-		if len(s) > max {
+		if len(s) > limit {
 			return errors.Join(ErrTooLong, fieldErr)
 		}
 		return nil

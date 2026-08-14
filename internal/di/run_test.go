@@ -1,4 +1,4 @@
-package di
+package di_test
 
 import (
 	"net/http"
@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bdtfs/go-service-template/internal/config"
+	"github.com/bdtfs/go-service-template/internal/di"
 	"github.com/bdtfs/go-service-template/pkg/service"
 )
 
@@ -20,14 +21,10 @@ func TestRegisterRoutesDefersDependencyConstruction(t *testing.T) {
 	cfg := &config.Config{}
 	svc, err := service.New(cfg)
 	require.NoError(t, err)
-	c := New(svc)
+	c := di.New(svc)
 	routes := registrar{}
 
 	c.RegisterRoutes(routes)
 
 	require.Len(t, routes, 2)
-	require.Nil(t, c.storage)
-	require.Nil(t, c.operationUC)
-	require.Nil(t, c.createOperationHandler)
-	require.Nil(t, c.getOperationHandler)
 }

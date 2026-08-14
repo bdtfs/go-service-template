@@ -42,8 +42,8 @@ func (c *Container) pool() *pgxpool.Pool {
 	if !ok {
 		return nil
 	}
-	pg, _ := comp.(*pgcomp.Component)
-	if pg == nil {
+	pg, ok := comp.(*pgcomp.Component)
+	if !ok || pg == nil {
 		return nil
 	}
 	return pg.Pool()

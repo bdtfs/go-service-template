@@ -16,11 +16,11 @@ run:
 output:
   print-issued-lines: false
   print-linter-name: true
-  uniq-by-line: false
   path-prefix: ""
   sort-results: true
 
 issues:
+  uniq-by-line: false
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false

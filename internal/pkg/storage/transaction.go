@@ -17,6 +17,5 @@ func NewTransactionFactory(pool *pgxpool.Pool) deps.TransactionFactory {
 // NewTransactionManager returns a TransactionManager backed by the pool. Wrap
 // multi-write use-case steps in TransactionManager.Do to make them atomic.
 func NewTransactionManager(pool *pgxpool.Pool) deps.TransactionManager {
-	f, _ := transactions.NewPgTransactionFactory(pool).(*transactions.PgTransactionFactory)
-	return transactions.NewPgTransactionManager(f)
+	return transactions.NewPgTransactionManager(transactions.NewPgTransactionFactory(pool))
 }

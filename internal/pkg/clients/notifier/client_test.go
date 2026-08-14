@@ -15,8 +15,12 @@ import (
 
 func TestClient_NotifyOperationCreated_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "/events/operation-created", r.URL.Path)
+		if r.Method != http.MethodPost {
+			t.Errorf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/events/operation-created" {
+			t.Errorf("path = %s, want /events/operation-created", r.URL.Path)
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()

@@ -30,9 +30,11 @@ func (f *fakeStorage) SaveOperation(_ context.Context, op *model.Operation) erro
 	f.saved = op
 	return nil
 }
+
 func (f *fakeStorage) GetOperation(context.Context, string) (*model.Operation, error) {
 	return f.saved, nil
 }
+
 func (f *fakeStorage) UpdateOperationStatus(context.Context, string, model.OperationStatus) error {
 	return nil
 }

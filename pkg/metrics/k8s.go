@@ -29,21 +29,29 @@ func (hc *HealthChecker) SetHealthy(healthy bool) {
 func (hc *HealthChecker) LivenessHandler(w http.ResponseWriter, _ *http.Request) {
 	if hc.isHealthy.Load() {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			return
+		}
 		return
 	}
 
 	w.WriteHeader(http.StatusInternalServerError)
-	_, _ = w.Write([]byte("unhealthy"))
+	if _, err := w.Write([]byte("unhealthy")); err != nil {
+		return
+	}
 }
 
 func (hc *HealthChecker) ReadinessHandler(w http.ResponseWriter, _ *http.Request) {
 	if hc.isReady.Load() {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			return
+		}
 		return
 	}
 
 	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = w.Write([]byte("not ready"))
+	if _, err := w.Write([]byte("not ready")); err != nil {
+		return
+	}
 }

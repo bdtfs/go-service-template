@@ -173,9 +173,9 @@ func (s *Service) Run(ctx context.Context) error {
 
 	// Block until shutdown signal
 	<-ctx.Done()
-	s.logger.InfoCtx(context.Background(), "shutting down...")
+	s.logger.InfoCtx(ctx, "shutting down...")
 
-	return s.shutdown()
+	return s.shutdown(ctx)
 }
 
 // buildHandler wraps the router with the middleware stack.
@@ -188,8 +188,8 @@ func (s *Service) buildHandler() http.Handler {
 	return handler
 }
 
-func (s *Service) shutdown() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+func (s *Service) shutdown(parent context.Context) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
 	defer cancel()
 
 	var errs []error

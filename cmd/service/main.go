@@ -11,11 +11,16 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	if err := di.Run(ctx, "config.yaml"); err != nil {
 		log.Print(err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

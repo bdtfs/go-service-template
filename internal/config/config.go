@@ -134,6 +134,7 @@ func (l *LogLevel) UnmarshalYAML(value *yaml.Node) error {
 // Load reads a YAML config file and interpolates environment variables.
 // Supports ${VAR} and ${VAR:default} syntax.
 func Load(path string) (*Config, error) {
+	//nolint:gosec // The configuration path is an explicit process argument.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)

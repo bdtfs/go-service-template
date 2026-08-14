@@ -31,7 +31,7 @@ func Run(ctx context.Context, configPath string) error {
 }
 
 type routeRegistrar interface {
-	HandleFunc(string, http.HandlerFunc)
+	HandleFunc(pattern string, handler http.HandlerFunc)
 }
 
 func (c *Container) RegisterRoutes(r routeRegistrar) {
