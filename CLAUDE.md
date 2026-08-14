@@ -13,7 +13,7 @@ cmd/service/main.go            Entry point — signal context and di.Run only
 internal/
   config/                       YAML config (infra) + app: section (domain tunables)
   deps/                         Log / Metrics / Transaction interfaces + stubs
-  model/                        Domain types, statuses, db tags, behavior
+  model/                        Domain types, statuses, events, errors, behavior
   di/                           Lazy composition root (get[T] accessors)
   pkg/                          Private service packages:
     clients/                    Outbound adapters (error.go + <svc>/{client,dto,errors})
@@ -45,10 +45,12 @@ pattern for new aggregates: add `model` types, a `storage/postgres` adapter, a
   `metrics.Registry`, and `pkg/transactions` satisfy structurally, plus no-op
   stubs for unit tests. Domain code imports `deps`, never `pkg/clog` etc.
 - **model** — pure domain types, domain events and errors with no I/O or wire
-  encoding. Adapters and use cases share these transport-neutral values.
+  encoding. JSON, YAML, database and persistence tags are forbidden. Adapters
+  and use cases share these transport-neutral values.
 - **storage** — `errors.go`/`filter.go` shared types; `postgres/` builds SQL with
-  squirrel (`$`-placeholders) and scans with scany. Every query runs against the
-  `TransactionFactory` so the same method works inside and outside a transaction.
+  squirrel (`$`-placeholders), scans into operation-specific private row types,
+  then maps every field explicitly to domain models. Every query runs against
+  the `TransactionFactory` so the same method works inside and outside a transaction.
 - **clients** — outbound adapters. `clients/error.go` holds shared
   `ResponseError`/`ValidationError`; each `<svc>/` has `client.go`, private wire
   DTOs, and `errors.go`. Clients map domain values to transport payloads.
@@ -120,5 +122,7 @@ prefer the mockery-generated mocks (`make codegen`) referenced by the
 (`operation_int_test.go`, `//go:build integration`) against a real postgres.
 `internal/architecture/structure_test.go` enforces entrypoint size, root hygiene,
 per-operation handler tests, recursive dependency direction, and one exact
-golangci-lint version shared by local and CI gates. `AGENTS.md` and `CLAUDE.md`
-must remain byte-identical; both the architecture suite and CI enforce parity.
+golangci-lint version shared by local and CI gates. It rejects persistence and
+transport tags in `internal/model`; committed good/bad fixtures prove the tag
+checker cannot silently become a no-op. `AGENTS.md` and `CLAUDE.md` must remain
+byte-identical; both the architecture suite and CI enforce parity.

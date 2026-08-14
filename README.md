@@ -44,7 +44,7 @@ cmd/service/main.go              Entry point — signal context and di.Run only
 internal/
   config/                         YAML config (infra) + app: domain tunables
   deps/                           Log / Metrics / Transaction interfaces + stubs
-  model/                          Domain types, statuses, db tags, behavior
+  model/                          Domain types, statuses, events, errors, behavior
   di/                             Lazy composition root (get[T] accessors)
   pkg/
     clients/                      Outbound adapters (error.go + <svc>/{client,dto,errors})
@@ -71,7 +71,10 @@ its interfaces are satisfied structurally by `clog.CLog`, `metrics.Registry`, an
 Use cases never import `clients`, `storage`, `handler`, or `di`. Point-of-use
 interfaces accept values from `model`; outbound clients translate those values
 to private transport DTOs, and storage adapters translate infrastructure misses
-to domain errors. The recursive architecture test rejects any reversal.
+to domain errors. PostgreSQL scans into private, operation-specific row structs
+and explicitly maps them into tag-free domain models. The recursive architecture
+test rejects any reversal or persistence/transport tag in `internal/model`;
+committed good/bad fixtures keep the checker from regressing into a no-op.
 
 ### Service Composition
 

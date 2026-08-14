@@ -2,12 +2,15 @@ package architecture_test
 
 import (
 	"bytes"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -99,6 +102,89 @@ func TestDependencyDirection(t *testing.T) {
 		"net/http", "database/sql", "github.com/jackc/pgx", "/internal/handler", "/internal/di",
 		"/internal/pkg/clients", "/internal/pkg/storage",
 	})
+}
+
+func TestModelHasNoPersistenceOrTransportTags(t *testing.T) {
+	violations, err := findForbiddenModelTags(filepath.Join(moduleRoot(t), "internal", "model"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, violation := range violations {
+		t.Errorf("%s: internal/model field has forbidden %s tag", violation.Path, violation.Tag)
+	}
+}
+
+type modelTagViolation struct {
+	Path string
+	Tag  string
+}
+
+func findForbiddenModelTags(root string) ([]modelTagViolation, error) {
+	var violations []modelTagViolation
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			field, ok := node.(*ast.Field)
+			if !ok || field.Tag == nil {
+				return true
+			}
+			value, err := strconv.Unquote(field.Tag.Value)
+			if err != nil {
+				return true
+			}
+			tag := reflect.StructTag(value)
+			for _, key := range []string{"json", "yaml", "db", "database"} {
+				if _, exists := tag.Lookup(key); exists {
+					violations = append(violations, modelTagViolation{Path: path, Tag: key})
+				}
+			}
+			return true
+		})
+		return nil
+	})
+	return violations, err
+}
+
+func TestModelTagCheckerFixtures(t *testing.T) {
+	tests := []struct {
+		name    string
+		fixture string
+		wantTag string
+	}{
+		{name: "clean model", fixture: "good"},
+		{name: "db tag", fixture: filepath.Join("bad", "db"), wantTag: "db"},
+		{name: "database tag", fixture: filepath.Join("bad", "database"), wantTag: "database"},
+		{name: "json tag", fixture: filepath.Join("bad", "json"), wantTag: "json"},
+		{name: "yaml tag", fixture: filepath.Join("bad", "yaml"), wantTag: "yaml"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			violations, err := findForbiddenModelTags(filepath.Join(
+				moduleRoot(t), "internal", "architecture", "testdata", "model-tags", tt.fixture,
+			))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantTag == "" {
+				if len(violations) != 0 {
+					t.Fatalf("clean fixture produced violations: %v", violations)
+				}
+				return
+			}
+			if len(violations) != 1 || violations[0].Tag != tt.wantTag {
+				t.Fatalf("violations = %v, want one %s tag", violations, tt.wantTag)
+			}
+		})
+	}
 }
 
 func TestLintVersionMatchesCI(t *testing.T) {
