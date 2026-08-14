@@ -31,7 +31,7 @@ func TestHandle_Created(t *testing.T) {
 	})
 
 	body := `{"type":"payment","user_id":1,"amount":100}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/operations", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/operations", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 
 	h.Handle(rec, req)
@@ -46,7 +46,7 @@ func TestHandle_Created(t *testing.T) {
 func TestHandle_ValidationError(t *testing.T) {
 	h := create_operation.New(deps.NewLogStub(), deps.NewMetricsStub(), fakeUseCase{})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/operations", strings.NewReader(`{"type":"payment","user_id":0,"amount":100}`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/operations", strings.NewReader(`{"type":"payment","user_id":0,"amount":100}`))
 	rec := httptest.NewRecorder()
 
 	h.Handle(rec, req)
@@ -56,7 +56,7 @@ func TestHandle_ValidationError(t *testing.T) {
 func TestHandle_BadJSON(t *testing.T) {
 	h := create_operation.New(deps.NewLogStub(), deps.NewMetricsStub(), fakeUseCase{})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/operations", strings.NewReader(`{not json`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/operations", strings.NewReader(`{not json`))
 	rec := httptest.NewRecorder()
 
 	h.Handle(rec, req)

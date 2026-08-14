@@ -28,7 +28,7 @@ func TestHandle_OK(t *testing.T) {
 		ExternalID: "ext-1",
 		Status:     model.StatusInProgress,
 	}})
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/operations/ext-1", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/operations/ext-1", http.NoBody)
 	req.SetPathValue("external_id", "ext-1")
 	rec := httptest.NewRecorder()
 
@@ -40,7 +40,7 @@ func TestHandle_OK(t *testing.T) {
 
 func TestHandle_NotFound(t *testing.T) {
 	h := get_operation.New(deps.NewLogStub(), deps.NewMetricsStub(), fakeUseCase{err: operation.ErrOperationNotFound})
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/operations/missing", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/operations/missing", http.NoBody)
 	req.SetPathValue("external_id", "missing")
 	rec := httptest.NewRecorder()
 
@@ -53,7 +53,7 @@ func TestHandle_MissingExternalID(t *testing.T) {
 	h := get_operation.New(deps.NewLogStub(), deps.NewMetricsStub(), fakeUseCase{})
 	rec := httptest.NewRecorder()
 
-	h.Handle(rec, httptest.NewRequest(http.MethodGet, "/api/v1/operations/", http.NoBody))
+	h.Handle(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/operations/", http.NoBody))
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
