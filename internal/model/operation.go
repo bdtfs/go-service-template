@@ -36,11 +36,11 @@ func (s OperationStatus) IsTerminal() bool {
 // Operation is the aggregate root of the reference domain. ExternalID is the
 // caller-supplied idempotency key.
 type Operation struct {
-	ExternalID  string          `db:"external_id"`
-	Type        OperationType   `db:"type"`
-	Status      OperationStatus `db:"status"`
-	UserID      int64           `db:"user_id"`
-	Amount      int64           `db:"amount"`
-	Description string          `db:"description"`
-	CreatedAt   time.Time       `db:"created_at"`
+	ExternalID  string
+	Type        OperationType
+	Status      OperationStatus
+	UserID      int64
+	Amount      int64
+	Description string
+	CreatedAt   time.Time
 }

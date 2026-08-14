@@ -1,5 +1,6 @@
 BIN := "./bin/service"
 DOCKER_IMG := "go-service:develop"
+GOLANGCI_LINT_VERSION := v2.11.0
 
 RELEASE := "develop"
 GIT_HASH := $(shell git log --format="%h" -n 1)
@@ -8,7 +9,8 @@ LDFLAGS := -X main.release=$(RELEASE) -X main.buildDate=$(shell date -u +%FT%TZ)
 .PHONY: lint test int-test build run tools codegen dc-reup dc-reb add-component
 
 install-upgrade-lint:
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | \
+		sh -s -- -b $(shell go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
 
 lint: install-upgrade-lint
 	golangci-lint run ./...

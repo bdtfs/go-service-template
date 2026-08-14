@@ -10,7 +10,6 @@ import (
 
 	"github.com/bdtfs/go-service-template/internal/deps"
 	"github.com/bdtfs/go-service-template/internal/model"
-	"github.com/bdtfs/go-service-template/internal/pkg/clients/notifier"
 	"github.com/bdtfs/go-service-template/internal/pkg/usecase/operation"
 )
 
@@ -21,6 +20,7 @@ import (
 type fakeStorage struct {
 	saved   *model.Operation
 	saveErr error
+	getErr  error
 }
 
 func (f *fakeStorage) SaveOperation(_ context.Context, op *model.Operation) error {
@@ -32,6 +32,9 @@ func (f *fakeStorage) SaveOperation(_ context.Context, op *model.Operation) erro
 }
 
 func (f *fakeStorage) GetOperation(context.Context, string) (*model.Operation, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
 	return f.saved, nil
 }
 
@@ -42,10 +45,12 @@ func (f *fakeStorage) UpdateOperationStatus(context.Context, string, model.Opera
 type fakeNotifier struct {
 	called bool
 	err    error
+	event  model.OperationCreated
 }
 
-func (f *fakeNotifier) NotifyOperationCreated(context.Context, notifier.OperationCreatedIn) error {
+func (f *fakeNotifier) NotifyOperationCreated(_ context.Context, event model.OperationCreated) error {
 	f.called = true
+	f.event = event
 	return f.err
 }
 
@@ -75,6 +80,7 @@ func TestCreateOperation_Success(t *testing.T) {
 	require.Equal(t, model.StatusInProgress, op.Status)
 	require.Equal(t, "ext-1", op.ExternalID)
 	require.True(t, nc.called)
+	require.Equal(t, model.OperationCreated{ExternalID: "ext-1", UserID: 10, Amount: 500}, nc.event)
 	require.NotNil(t, st.saved)
 }
 

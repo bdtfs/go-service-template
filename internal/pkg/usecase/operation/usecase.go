@@ -7,7 +7,6 @@ import (
 
 	"github.com/bdtfs/go-service-template/internal/deps"
 	"github.com/bdtfs/go-service-template/internal/model"
-	"github.com/bdtfs/go-service-template/internal/pkg/clients/notifier"
 	"github.com/bdtfs/go-service-template/pkg/metrics"
 )
 
@@ -24,7 +23,7 @@ type storage interface {
 
 //go:generate ../../../../bin/mockery --name notifierClient
 type notifierClient interface {
-	NotifyOperationCreated(ctx context.Context, in notifier.OperationCreatedIn) error
+	NotifyOperationCreated(ctx context.Context, event model.OperationCreated) error
 }
 
 // UseCase orchestrates the operation domain: it validates inputs against

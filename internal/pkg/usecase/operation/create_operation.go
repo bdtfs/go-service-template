@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bdtfs/go-service-template/internal/model"
-	"github.com/bdtfs/go-service-template/internal/pkg/clients/notifier"
 )
 
 // CreateOperationIn is the input to CreateOperation. ExternalID is optional; a
@@ -53,7 +52,7 @@ func (uc *UseCase) CreateOperation(ctx context.Context, in CreateOperationIn) (m
 			return fmt.Errorf("save operation: %w", err)
 		}
 
-		if err := uc.notifier.NotifyOperationCreated(ctx, notifier.OperationCreatedIn{
+		if err := uc.notifier.NotifyOperationCreated(ctx, model.OperationCreated{
 			ExternalID: op.ExternalID,
 			UserID:     op.UserID,
 			Amount:     op.Amount,

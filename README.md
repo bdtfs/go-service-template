@@ -7,7 +7,7 @@ per-endpoint handler packages, and a lazy DI container.
 
 ## Features
 
-- **Layered architecture** — `deps` → `model` → `storage`/`clients` → `usecase` → `handler`, wired by a `di` container
+- **Strict dependency direction** — use cases own narrow ports over domain values; clients and storage are adapters wired only by `di`
 - **Point-of-use interfaces** — each consumer declares the narrow interface it needs; mocks via mockery
 - **Series metrics** — every layer instruments itself through a `pkg/metrics.Series`
 - **Composable infra modules** — enable/disable components via `config.yaml`
@@ -44,7 +44,7 @@ cmd/service/main.go              Entry point — signal context and di.Run only
 internal/
   config/                         YAML config (infra) + app: domain tunables
   deps/                           Log / Metrics / Transaction interfaces + stubs
-  model/                          Domain types, statuses, db tags, behavior
+  model/                          Domain types, statuses, events, errors, behavior
   di/                             Lazy composition root (get[T] accessors)
   pkg/
     clients/                      Outbound adapters (error.go + <svc>/{client,dto,errors})
@@ -67,6 +67,15 @@ pkg/                             Reusable infra libs (importable by any service)
 The `deps` package is the only seam between `internal/` and the concrete libs:
 its interfaces are satisfied structurally by `clog.CLog`, `metrics.Registry`, and
 `pkg/transactions`, so domain code never imports them directly.
+
+Use cases never import `clients`, `storage`, `handler`, or `di`. Point-of-use
+interfaces accept values from `model`; outbound clients translate those values
+to private transport DTOs, and storage adapters translate infrastructure misses
+to domain errors. PostgreSQL scans into private, operation-specific row structs
+and explicitly maps them into tag-free domain models. The recursive architecture
+test rejects any reversal or any struct tag in `internal/model`; committed clean
+and db/database/json/yaml/gorm/bson fixtures keep the checker from regressing
+into a no-op.
 
 ### Service Composition
 
@@ -182,10 +191,13 @@ make build           # Build binary
 make run             # Build and run
 make test            # Unit tests with race detector
 make int-test        # Integration tests
-make lint            # golangci-lint
+make lint            # pinned golangci-lint v2.11.0, matching CI
 make codegen         # Generate mocks
 make dc-reup         # Restart docker-compose
 ```
+
+`internal/architecture/structure_test.go` also verifies that the Makefile and
+GitHub Actions use the same exact golangci-lint release.
 
 ## License
 

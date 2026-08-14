@@ -6,17 +6,16 @@ import (
 	"fmt"
 
 	"github.com/bdtfs/go-service-template/internal/model"
-	storagepkg "github.com/bdtfs/go-service-template/internal/pkg/storage"
 )
 
-// GetOperation returns an operation by external id, mapping the storage
-// not-found sentinel to the domain-level ErrOperationNotFound.
+// GetOperation returns an operation by external id, mapping the model-level
+// absence signal to the use-case error.
 func (uc *UseCase) GetOperation(ctx context.Context, externalID string) (model.Operation, error) {
 	ctx, series := uc.s.WithOperation(ctx, "get_operation")
 
 	op, err := uc.st.GetOperation(ctx, externalID)
 	if err != nil {
-		if errors.Is(err, storagepkg.ErrEntityNotFound) {
+		if errors.Is(err, model.ErrOperationNotFound) {
 			uc.mc.Inc(series.Error("not_found"))
 			return model.Operation{}, ErrOperationNotFound
 		}

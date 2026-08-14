@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/georgysavva/scany/pgxscan"
@@ -16,6 +17,28 @@ import (
 )
 
 const operationColumns = "external_id, type, status, user_id, amount, description, created_at"
+
+type operationRow struct {
+	ExternalID  string                `db:"external_id"`
+	Type        model.OperationType   `db:"type"`
+	Status      model.OperationStatus `db:"status"`
+	UserID      int64                 `db:"user_id"`
+	Amount      int64                 `db:"amount"`
+	Description string                `db:"description"`
+	CreatedAt   time.Time             `db:"created_at"`
+}
+
+func (row operationRow) operation() model.Operation {
+	return model.Operation{
+		ExternalID:  row.ExternalID,
+		Type:        row.Type,
+		Status:      row.Status,
+		UserID:      row.UserID,
+		Amount:      row.Amount,
+		Description: row.Description,
+		CreatedAt:   row.CreatedAt,
+	}
+}
 
 // SaveOperation inserts op idempotently. A repeated external_id is a no-op
 // (ON CONFLICT DO NOTHING); on success op.CreatedAt is populated.
@@ -44,8 +67,7 @@ func (s *Storage) SaveOperation(ctx context.Context, op *model.Operation) error 
 	}
 }
 
-// GetOperation returns the operation with the given external_id, or
-// storage.ErrEntityNotFound.
+// GetOperation returns the operation with the given external_id.
 func (s *Storage) GetOperation(ctx context.Context, externalID string) (*model.Operation, error) {
 	q, args, err := psql.Select(operationColumns).
 		From("operations").
@@ -55,15 +77,16 @@ func (s *Storage) GetOperation(ctx context.Context, externalID string) (*model.O
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	var op model.Operation
-	err = pgxscan.Get(ctx, s.trf.Transaction(ctx), &op, q, args...)
+	var row operationRow
+	err = pgxscan.Get(ctx, s.trf.Transaction(ctx), &row, q, args...)
 	if err != nil {
 		if pgxscan.NotFound(err) {
-			return nil, storage.ErrEntityNotFound
+			return nil, model.ErrOperationNotFound
 		}
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 
+	op := row.operation()
 	return &op, nil
 }
 
@@ -94,16 +117,19 @@ func (s *Storage) GetOperationList(ctx context.Context, f storage.OperationsFilt
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	var ops []model.Operation
-	if err = pgxscan.Select(ctx, s.trf.Transaction(ctx), &ops, q, args...); err != nil {
+	var rows []operationRow
+	if err = pgxscan.Select(ctx, s.trf.Transaction(ctx), &rows, q, args...); err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	ops := make([]model.Operation, len(rows))
+	for i, row := range rows {
+		ops[i] = row.operation()
 	}
 
 	return ops, nil
 }
 
-// UpdateOperationStatus sets a new status, returning storage.ErrEntityNotFound
-// when no row matches.
+// UpdateOperationStatus sets a new status.
 func (s *Storage) UpdateOperationStatus(ctx context.Context, externalID string, status model.OperationStatus) error {
 	q, args, err := psql.Update("operations").
 		Set("status", status).
@@ -118,7 +144,7 @@ func (s *Storage) UpdateOperationStatus(ctx context.Context, externalID string, 
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return storage.ErrEntityNotFound
+		return model.ErrOperationNotFound
 	}
 
 	return nil
