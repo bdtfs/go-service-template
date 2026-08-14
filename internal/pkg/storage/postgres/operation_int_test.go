@@ -78,7 +78,7 @@ func TestStorage_SaveAndGetOperation(t *testing.T) {
 func TestStorage_GetOperation_NotFound(t *testing.T) {
 	st := setup(t)
 	_, err := st.GetOperation(context.Background(), "missing")
-	require.ErrorIs(t, err, storage.ErrEntityNotFound)
+	require.ErrorIs(t, err, model.ErrOperationNotFound)
 }
 
 func TestStorage_UpdateOperationStatus(t *testing.T) {
@@ -100,5 +100,5 @@ func TestStorage_UpdateOperationStatus(t *testing.T) {
 	require.Equal(t, model.StatusSuccess, got.Status)
 
 	err = st.UpdateOperationStatus(ctx, "missing", model.StatusSuccess)
-	require.ErrorIs(t, err, storage.ErrEntityNotFound)
+	require.ErrorIs(t, err, model.ErrOperationNotFound)
 }
